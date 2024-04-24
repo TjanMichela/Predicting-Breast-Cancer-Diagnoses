@@ -1,0 +1,1256 @@
+---
+title: "Breast Cancer Predictive Model"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+# Predicting Breast Cancer
+This looks into using various R machine learning and data-science libraries in an attempt to build a machine learning model capable to predict whether or not a person has breast cancer based on their medical attributes.
+
+## Project approach:
+
+1. Problem definition
+2. Data
+3. Evaluation
+4. Features
+5. Modelling
+6. Experimentation
+
+## 1. Problem definition
+In a statement:
+
+> Based on a model trained on synthetic data, how well can said model predict whether or not a clinical patient have breast cancer?
+
+## 2. Data
+The original data came from the Coimbra data of the UCI Machine Learning Repository. https://archive.ics.uci.edu/dataset/451/breast+cancer+coimbra
+
+It will be used alongside a synthetic data found in Kaggle.
+https://www.kaggle.com/datasets/atom1991/breast-cancer-coimbra
+
+## 3. Evaluation
+> The model will be evaluated on various metrics: accuracy, precision, recall, f1-score, confusion matrix.
+
+## 4. Features
+A list of important information regarding the features of the data.
+
+**Create data dictionary**
+Quantitative Attributes:
+
+1. Age (years): Represents the age of individuals in the dataset.
+2. BMI (kg/m²): Body Mass Index, a measure of body fat based on weight and height.
+3. Glucose (mg/dL): Reflects blood glucose levels, a vital metabolic indicator.
+4. Insulin (µU/mL): Indicates insulin levels, a hormone associated with glucose regulation.
+5. HOMA: Homeostatic Model Assessment, a method assessing insulin resistance and beta-cell function.
+6. Leptin (ng/mL): Represents leptin levels, a hormone involved in appetite and energy balance regulation.
+7. Adiponectin (µg/mL): Reflects adiponectin levels, a protein associated with metabolic regulation.
+8. Resistin (ng/mL): Indicates resistin levels, a protein implicated in insulin resistance.
+9. MCP-1 (pg/dL): Reflects Monocyte Chemoattractant Protein-1 levels, a cytokine involved in inflammation.
+10. Labels: 
+    - 1: Healthy controls
+    - 2: Patients with breast cancer
+
+### Import libraries
+
+```{r}
+library(tidyverse)
+library(dplyr)
+```
+
+### Import dataset:
+
+```{r}
+data <- read_csv("../data/Coimbra_breast_cancer_dataset.csv")
+
+head(data)
+```
+
+```{r}
+colnames(data)
+```
+
+```{r}
+# org_data <- read_csv("/kaggle/input/breastcancercoimbra-csv/BreastCancerCoimbra.csv")
+org_data <- read_csv("../data/dataR2.csv")
+
+head(org_data)
+```
+
+```{r}
+colnames(org_data)
+```
+
+```{r}
+# Check the similarity of feature names of both datasets
+all.equal(colnames(data), colnames(org_data))
+```
+
+### Exploratory Data Analysis
+
+EDA is applied to the two datasets, the synthetic and the original datasets.
+
+#### Synthetic dataset
+
+```{r}
+# View the dimension
+dim(data)
+```
+
+What is the class of the columns in the dataframe?
+
+```{r}
+str(data)
+```
+
+Convert features into their appropriate datatypes. Features with values without decimal points are converted into integers and features with classes are converted into factors. Features with decimal points will remain as numeric.
+- `Age`: `integer`
+- `BMI`: `numeric`
+- `Glucose`: `integer`
+- `Insulin`: `numeric`
+- `HOMA`: `numeric`
+- `Leptin`: `numeric`
+- `Adiponectin`: `numeric`
+- `Resistin`: `numeric`
+- `MCP.1`: `integer`
+- `Classification`: `factor`
+
+```{r}
+# Convert features datatype from numeric to integer
+data$Age <- as.integer(data$Age)
+data$Glucose <- as.integer(data$Glucose)
+data$MCP.1 <- as.integer(data$MCP.1)
+
+# Convert target feature datatype from numeric to factor
+data$Classification <- as.factor(data$Classification)
+```
+
+```{r}
+str(data)
+```
+
+```{r}
+# View count of null values
+sum(is.na(data))
+```
+
+This data does not contain any missing values so we do not need to remove or replace any rows.
+
+Display the summary statistics for the numeric variables (which includes both integer and floats):
+
+```{r}
+# Subset of data containing only numeric data
+numeric_data <- data[, -which(colnames(data) == "Classification")]
+```
+
+```{r}
+summary(numeric_data)
+```
+
+```{r}
+head(data)
+```
+
+```{r}
+head(numeric_data)
+```
+
+Histograms of numeric variables:
+
+```{r}
+# Setting up the layout for multiple histograms
+par(mfrow = c(3, 3))
+
+# Looping through each numeric variable to create histograms
+for (i in 1:ncol(numeric_data)) {
+    hist(numeric_data[[i]], main = colnames(numeric_data)[i], xlab = colnames(numeric_data)[i])
+}
+```
+
+Find the count of each class in target feature.
+
+```{r}
+counts <- table(data$Classification)
+
+counts
+```
+
+```{r}
+barplot(counts, main="Target Variable Value Counts", xlab="target")
+```
+
+Calculate the correlation matrix between the different variables:
+
+```{r}
+correlation_matrix <- cor(numeric_data)
+correlation_matrix
+```
+
+```{r}
+pairs(data)
+```
+
+```{r}
+library(corrplot)
+```
+
+```{r}
+corrplot(correlation_matrix, type="full", method ="color", title = "Breast Cancer correlation plot", mar=c(0,0,1,0), tl.cex= 0.8, outline= T, tl.col="indianred4")
+```
+
+There does not seem to be high correlations between the features.
+
+#### Original Dataset
+
+```{r}
+# View the dimension
+dim(org_data)
+```
+
+What is the class of the features in the dataset?
+
+```{r}
+str(org_data)
+```
+
+Convert features into their appropriate datatypes. Features with values without decimal points are converted into integers and features with classes are converted into factors. Features with decimal points will remain as numeric.
+- `Age`: `integer`
+- `BMI`: `numeric`
+- `Glucose`: `integer`
+- `Insulin`: `numeric`
+- `HOMA`: `numeric`
+- `Leptin`: `numeric`
+- `Adiponectin`: `numeric`
+- `Resistin`: `numeric`
+- `MCP.1`: `integer`
+- `Classification`: `factor`
+
+```{r}
+# Convert features datatype from numeric to integer
+org_data$Age <- as.integer(org_data$Age)
+org_data$Glucose <- as.integer(org_data$Glucose)
+org_data$MCP.1 <- as.integer(org_data$MCP.1)
+
+# Convert target feature datatype from numeric to factor
+org_data$Classification <- as.factor(org_data$Classification)
+```
+
+```{r}
+str(org_data)
+```
+
+```{r}
+# View count of null data
+sum(is.na(org_data))
+```
+
+Since there are no null values, there is no need to replace or remove observations and/or features.
+
+Display the summary statistics for the numeric variables (which includes both integer and floats):
+
+```{r}
+summary(org_data[, -which(colnames(org_data) == "Classification")])
+```
+
+Histograms of numeric features:
+
+```{r}
+# Setting up the layout for multiple histograms
+par(mfrow = c(3, 3))
+
+# Looping through each numeric variable to create histograms
+for (i in 1:ncol(data[, -which(colnames(org_data) == "Classification")])) {
+    hist(org_data[[i]], main = colnames(org_data)[i], xlab = colnames(org_data)[i])
+}
+```
+
+Find the count of each class in target feature.
+
+```{r}
+org_counts <- table(org_data$Classification)
+
+org_counts
+```
+
+```{r}
+barplot(org_counts, main="Target Variable Value Counts", xlab="target")
+```
+
+Calculate the correlation matrix between the different features.
+
+```{r}
+pairs(org_data)
+```
+
+```{r}
+org_cor_matrix <- cor(org_data[, -which(colnames(org_data) == "Classification")])
+
+org_cor_matrix
+```
+
+```{r}
+corrplot(org_cor_matrix, type="full", method ="color", title = "Breast Cancer correlation plot", mar=c(0,0,1,0), tl.cex= 0.8, outline= T, tl.col="indianred4")
+```
+
+## 5. Modelling
+
+Once the data has been split into training and test sets, the data will be fit into different machine learning models: 
+- Logistic Regression
+- K-Nearest Neighbors Classifier (KNN)
+- Linear Discriminant Analysis (LDA)
+- Quadratic Discriminant Analysis (QDA)
+
+The model will be trained to find the patterns on the training set and tested using the patterns it found on the test set. Since two different datasets will be used, the datasets will be split into train-val-test sets:
+- train: 70% of the synthetic data (kaggle data)
+- validation: 30% of the synthetic data (kaggle data)
+- test: 100% of the original data (UCI ML data)
+
+Split the dataset using 70% for training and 30% for validation and prepare test set:
+
+```{r}
+set.seed(1)
+
+train_index <- sample(1:nrow(data), 0.7 * nrow(data))
+training_data <- data[train_index, ]
+val_data <- data[-train_index, ]
+test_data <- org_data
+```
+
+```{r}
+# Ensure reproducibility of results
+set.seed(1)
+
+# cbind(): column bind
+train.X <- training_data[, -which(colnames(data) == "Classification")]
+val.X <- val_data[, -which(colnames(data) == "Classification")]
+test.X <- test_data[, -which(colnames(data) == "Classification")]
+train.y <- training_data$Classification
+val.y <- val_data$Classification
+test.y <- test_data$Classification
+```
+
+**Principal Component Analysis (PCA)**
+
+We will use PCA to check for homogeneity among the datasets. This is important for future generalization. Since we aim to build a predictive model that can generalize to unseen data, it is important to check that the training and testing data comes from similar distributions. If not, the model will not generalize well and have a poor performance.
+
+```{r}
+# standardizing synthetic data
+trainX_scaled <- scale(train.X)
+valX_scaled <- scale(val.X)
+
+# combining the train and validation features for PCA
+combined_features <- rbind(trainX_scaled, valX_scaled)
+
+# performing PCA
+pca_result <- prcomp(combined_features, center = TRUE, scale. = TRUE)
+
+# applying PCA transformation to train and validation features
+train_pca <- predict(pca_result, trainX_scaled)
+validation_pca <- predict(pca_result, valX_scaled)
+```
+
+```{r}
+# standardizing original data
+testX_scaled <- scale(test.X)
+
+# applying PCA transformation to original features using the PCA model from synthetic data
+original_pca <- predict(pca_result, testX_scaled)
+```
+
+We will check for homogeneity by comparing the distributions of principal components (PCs) between the synthetic data and the original data.
+
+By plotting, we can visually inspect to see if there are any noticeable patterns or clusters. If the datasets are homogeneous, you would expect the points from both datasets to be distributed similarly and not form distinct clusters. 
+
+```{r}
+pca_scatterplot <- function(train_pca, original_pca) {
+    
+  par(mfrow = c(2, 2),  mar = c(5, 5, 5, 5))
+    
+  options(repr.plot.width = 30, repr.plot.height = 30)
+  
+  for (i in 1:4) {
+    plot(train_pca[, i], train_pca[, i+1], 
+         xlab = paste("Synthetic PC", i), ylab = paste("Synthetic PC", i+1),
+         main = paste("Synthetic PC", i, "vs", "Synthetic PC", i+1),
+         pch = 16, col = "blue", cex = 1.5)
+    
+    points(original_pca[, i], original_pca[, i+1], pch = 16, col = "red", cex = 1.5)
+  }
+  legend("bottomright", legend = c("Synthetic Data", "Original Data"), 
+         pch = 16, col = c("blue", "red"), cex = 0.8)
+}
+
+pca_scatterplot(train_pca, original_pca)
+```
+
+In the scatterplots above, we can see that the datasets are homogenous because there are no clusters and the points from both the synthetic and original data are spread out.
+
+```{r}
+plot_pca <- function(train_pca, original_pca) {
+  par(mfrow = c(2, 4))  
+  
+  for (i in 1:4) {
+    hist(train_pca[, i], 
+         main = paste("Synthetic PC", i), 
+         xlab = "Principal Component Value",
+         col = "lightblue", 
+         border = "black")
+    
+    hist(original_pca[, i], 
+         main = paste("Original PC", i), 
+         xlab = "Principal Component Value",
+         col = "lightgreen", 
+         border = "black")
+  }
+}
+
+plot_pca(train_pca, original_pca)
+```
+
+Looking at the histograms above, we can see that the shapes for both the synthetic and original data are very similar. They exhibit similar distribution shapes with centers that are close or aligned. Also, the spread of the histograms are similar, further indicating homogeneity.
+
+We can also find the variance explained by each principal component (PC).
+
+```{r}
+# Calculate the variance explained by each principal component
+variance_explained <- (pca_result$sdev)^2
+variance_explained
+```
+
+```{r}
+# Calculate the total variance
+total_variance <- sum(variance_explained)
+total_variance
+```
+
+```{r}
+# Calculate the proportion of variance explained by each principal component
+proportion_variance_explained <- variance_explained / total_variance
+proportion_variance_explained
+```
+
+```{r}
+variance_explained_df <- data.frame(
+  PC = 1:length(variance_explained),
+  Variance_Explained = variance_explained,
+  Proportion_Variance_Explained = proportion_variance_explained
+)
+
+variance_explained_df
+```
+
+The variance explained by each PC can reveal how much of the total variability in the dataset is captured by each PC. This information can be useful to understand the underlying structure of the data because components that explain a large amount of variance may represent important patterns or relationships. By better understanding the data, we can make better decisions in terms of feature selection and model building.
+
+### Logistic Regression Model
+
+```{r}
+glm.model <- glm(Classification ~ ., data = training_data, family = binomial)
+
+summary(glm.model)
+```
+
+```{r}
+# Predict on validation data
+glm.probs <- predict(glm.model, val.X, type = "response") 
+
+head(glm.probs)
+```
+
+```{r}
+# Get performance measures
+num_test <- length(glm.probs) 
+glm.pred <- rep(0, num_test) 
+glm.pred[glm.probs > 0.5] <- 1
+
+# Confusion matrix
+table(glm.pred, val.y)
+```
+
+```{r}
+# Validation error
+mean(glm.pred != val.y)
+```
+
+```{r}
+# Accuracy score
+1 - mean(glm.pred != val.y)
+```
+
+```{r}
+# Predict on test data
+glm.probs_test <- predict(glm.model, test.X, type = "response") 
+
+head(glm.probs_test)
+```
+
+```{r}
+# Get performance measures
+num_test <- length(glm.probs_test) 
+glm.pred_test <- rep(0, num_test) 
+glm.pred_test[glm.probs_test > 0.5] <- 1
+
+# Confusion matrix
+confusion_matrix <- table(glm.pred_test, test.y)
+confusion_matrix
+```
+
+Test error:
+
+```{r}
+mean(glm.pred_test != test.y)
+```
+
+Validation error:
+
+```{r}
+mean(glm.pred != val.y)
+```
+
+```{r}
+accuracy_score <- 1 - mean(glm.pred != val.y)
+accuracy_score
+```
+
+```{r}
+precision <- confusion_matrix[2, 2] / sum(confusion_matrix[, 2])
+precision
+```
+
+```{r}
+recall <- confusion_matrix[2, 2] / sum(confusion_matrix[2, ])
+recall
+```
+
+```{r}
+F1_score <- (2*precision*recall)/(precision+recall)
+F1_score
+```
+
+### KNN Model
+
+```{r}
+# Define N
+N <- nrow(training_data)
+
+# Define initial k
+k_initial <- ceiling(sqrt(N))
+k_initial
+```
+
+```{r}
+# Load library
+library(class)
+```
+
+```{r}
+# Ensure reproducibility of results
+set.seed(1)
+
+# Standardize X
+standardized_X <- scale(data[, -which(colnames(data) == "Classification")])
+
+# Split train test X standardized
+X_train_std <- standardized_X[train_index, ] 
+X_val_std <- standardized_X[-train_index, ]
+
+# Train and test KNN with K=k_initial
+knn.pred <- knn(X_train_std, X_val_std, train.y, k = k_initial)
+```
+
+Confusion matrix:
+
+```{r}
+table(knn.pred, val.y)
+```
+
+Validation error:
+
+```{r}
+val_error <- mean(knn.pred != val.y)
+val_error
+```
+
+```{r}
+knn.pred_test <- knn(X_train_std, test.X, train.y, k = k_initial)
+
+confusion_matrix <- table(knn.pred_test, test.y)
+confusion_matrix
+```
+
+Test error:
+
+```{r}
+test_error <- mean(knn.pred_test != test.y)
+test_error
+```
+
+```{r}
+accuracy_score <- 1 - val_error
+accuracy_score
+```
+
+```{r}
+precision <- confusion_matrix[2, 2] / sum(confusion_matrix[, 2])
+precision
+```
+
+```{r}
+recall <- confusion_matrix[2, 2] / sum(confusion_matrix[2, ])
+recall
+```
+
+```{r}
+F1_score <- (2*precision*recall)/(precision+recall)
+F1_score
+```
+
+### LDA Model
+
+```{r}
+library(MASS)
+```
+
+```{r}
+lda.fit <- lda(Classification ~ ., data=training_data)
+
+lda.fit
+```
+
+Plotting the linear discriminants:
+
+```{r}
+plot(lda.fit)
+```
+
+```{r}
+# Predict output for test set
+lda.pred <- predict(lda.fit, val.X)
+
+# predict() returns the class, posterior probabilities and the linear discriminants
+names(lda.pred)
+```
+
+Confusion matrix:
+
+```{r}
+lda.class <- lda.pred$class
+
+table(lda.class, val.y)
+```
+
+Validation error:
+
+```{r}
+val_error <- mean(lda.class != val.y)
+val_error
+```
+
+```{r}
+# Predict output for test set
+lda.pred_test <- predict(lda.fit, test.X)
+
+lda.class_test <- lda.pred_test$class
+
+confusion_matrix <- table(lda.class_test, test.y)
+confusion_matrix
+```
+
+Test Error:
+
+```{r}
+test_error <- mean(lda.class_test != test.y)
+test_error
+```
+
+```{r}
+accuracy_score <- 1 - val_error
+accuracy_score
+```
+
+```{r}
+precision <- confusion_matrix[2, 2] / sum(confusion_matrix[, 2])
+precision
+```
+
+```{r}
+recall <- confusion_matrix[2, 2] / sum(confusion_matrix[2, ])
+recall
+```
+
+```{r}
+F1_score <- (2*precision*recall)/(precision+recall)
+F1_score
+```
+
+### QDA Model
+
+```{r}
+qda.fit <- qda(Classification ~ ., data=training_data)
+qda.fit
+```
+
+Confusion matrix:
+
+```{r}
+qda.class <- predict(qda.fit, val.X)$class
+
+table(qda.class, val.y)
+```
+
+Valdiation error:
+
+```{r}
+val_error <- mean(qda.class != val.y)
+val_error
+```
+
+```{r}
+qda.class_test <- predict(qda.fit, test.X)$class
+
+confusion_matrix <- table(qda.class_test, test.y)
+confusion_matrix
+```
+
+Test error:
+
+```{r}
+test_error <- mean(qda.class_test != test.y)
+test_error
+```
+
+```{r}
+accuracy_score <- 1 - val_error
+accuracy_score
+```
+
+```{r}
+precision <- confusion_matrix[2, 2] / sum(confusion_matrix[, 2])
+precision
+```
+
+```{r}
+recall <- confusion_matrix[2, 2] / sum(confusion_matrix[2, ])
+recall
+```
+
+```{r}
+F1_score <- (2*precision*recall)/(precision+recall)
+F1_score
+```
+
+## 6. Experimentation
+
+At this stage of the project, various experimentation will be conducted to optimize the baseline model. In addition, this optimized model is evaluated based on multiple metrics. This section covers the following:
+- Hyperparameter tuning
+- Feature importance
+- Confusion matrix
+- Cross-validation
+- Precision
+- Recall
+- F1 score
+- Classification report
+- ROC curve
+- Area under the curve (AUC)
+
+**Hyperparameter Tuning for Logistic Regression Model**
+
+```{r}
+library(caret)
+```
+
+Define the parameter grid:
+
+```{r}
+param_grid <- expand.grid(
+  alpha = seq(0, 1, by = 0.1),  
+  lambda = c(0.01, 0.1, 1)  
+)
+```
+
+```{r}
+ctrl <- trainControl(method = "cv", number = 5)  
+
+glm_tuned <- train(
+  Classification ~ ., 
+  data = training_data, 
+  method = "glmnet",  
+  tuneGrid = param_grid,  
+  family = "binomial",  
+  trControl = ctrl,
+  verbose = FALSE  
+)
+
+print(glm_tuned)
+```
+
+```{r}
+best_alpha <- glm_tuned$bestTune$alpha
+best_lambda <- glm_tuned$bestTune$lambda
+
+final_glm_model <- glmnet::glmnet(x = model.matrix(~ ., data = train.X)[, -1], 
+                                  y = as.factor(train.y), 
+                                  alpha = best_alpha, lambda = best_lambda, family = "binomial")
+```
+
+Make predictions on valdiation data and convert probabilities to class predictions:
+
+```{r}
+glm_probs <- predict(final_glm_model, newx = model.matrix(~ ., data = val.X)[, -1], 
+                     type = "response")
+
+glm_pred <- ifelse(glm_probs > 0.5, 1, 0)
+```
+
+Evaluate the final model:
+
+```{r}
+confusion_matrix_glm <- table(glm_pred, val.y)
+confusion_matrix_glm
+```
+
+```{r}
+validation_error <- mean(glm_pred != val.y)
+validation_error
+```
+
+```{r}
+accuracy_score <- 1 - validation_error
+accuracy_score
+```
+
+```{r}
+precision <- confusion_matrix_glm[2, 2] / sum(confusion_matrix_glm[, 2])
+precision
+```
+
+```{r}
+recall <- confusion_matrix_glm[2, 2] / sum(confusion_matrix_glm[2, ])
+recall
+```
+
+```{r}
+F1_score <- (2*precision*recall)/(precision+recall)
+F1_score
+```
+
+Make predictions on the test set.
+
+```{r}
+glm_probs_test <- predict(final_glm_model, newx = model.matrix(~ ., data = test.X)[, -1], 
+                     type = "response")
+
+glm_pred_test <- ifelse(glm_probs_test > 0.5, 1, 0)
+```
+
+Evaluate the final model on the test set:
+
+```{r}
+confusion_matrix_glm_test <- table(glm_pred_test, test.y)
+confusion_matrix_glm_test
+```
+
+```{r}
+validation_error_test <- mean(glm_pred_test != test.y)
+validation_error_test
+```
+
+```{r}
+accuracy_score_test <- 1 - validation_error_test
+accuracy_score_test
+```
+
+```{r}
+precision_test <- confusion_matrix_glm_test[2, 2] / sum(confusion_matrix_glm_test[, 2])
+precision_test
+```
+
+```{r}
+recall_test <- confusion_matrix_glm_test[2, 2] / sum(confusion_matrix_glm_test[2, ])
+recall_test
+```
+
+```{r}
+F1_score_test <- (2*precision_test*recall_test)/(precision_test+recall_test)
+F1_score_test
+```
+
+**Hyperparameter Tuning for KNN Model**
+
+Define the parameter grid:
+
+```{r}
+param_grid <- expand.grid(
+  k = seq(1, 20, by = 1)  
+)
+```
+
+```{r}
+ctrl <- trainControl(method = "cv", number = 5)  
+
+knn_tuned <- train(
+  Classification ~ ., 
+  data = training_data, 
+  method = "knn",  
+  trControl = ctrl,  
+  tuneGrid = param_grid  
+)
+
+print(knn_tuned)
+```
+
+Get the best hyperparameters:
+
+```{r}
+best_k <- knn_tuned$bestTune$k
+
+final_knn_model <- knn(
+  train = model.matrix(~ ., data = training_data)[, -1], 
+  test = model.matrix(~ ., data = val_data)[, -1], 
+  cl = train.y, 
+  k = best_k
+)
+```
+
+Make predictions on validation data and evaluate model:
+
+```{r}
+knn_pred <- final_knn_model
+
+accuracy <- mean(knn_pred == val.y)
+accuracy
+```
+
+```{r}
+confusion_matrix_knn <- table(knn_pred, val.y)
+confusion_matrix_knn
+```
+
+```{r}
+validation_error <- mean(knn_pred != val.y)
+validation_error
+```
+
+```{r}
+precision <- confusion_matrix_knn[2, 2] / sum(confusion_matrix_knn[, 2])
+precision
+```
+
+```{r}
+recall <- confusion_matrix_knn[2, 2] / sum(confusion_matrix_knn[2, ])
+recall
+```
+
+```{r}
+F1_score <- (2*precision*recall)/(precision+recall)
+F1_score
+```
+
+Evaluation on test set
+
+```{r}
+final_knn_model_test <- knn(
+  train = model.matrix(~ ., data = training_data)[, -1], 
+  test = model.matrix(~ ., data = test_data)[, -1], 
+  cl = train.y, 
+  k = best_k
+)
+```
+
+```{r}
+knn_pred_test <- final_knn_model_test
+
+accuracy_test <- mean(knn_pred_test == test.y)
+accuracy_test
+```
+
+```{r}
+confusion_matrix_knn_test <- table(knn_pred_test, test.y)
+confusion_matrix_knn_test
+```
+
+```{r}
+validation_error_test <- mean(knn_pred_test != test.y)
+validation_error_test
+```
+
+```{r}
+precision_test <- confusion_matrix_knn_test[2, 2] / sum(confusion_matrix_knn_test[, 2])
+precision_test
+```
+
+```{r}
+recall_test <- confusion_matrix_knn_test[2, 2] / sum(confusion_matrix_knn_test[2, ])
+recall_test
+```
+
+```{r}
+F1_score_test <- (2*precision_test*recall_test)/(precision_test+recall_test)
+F1_score_test
+```
+
+**Hyperparameter Tuning for LDA Model**
+
+With LDA, there are typically no tuning parameters to optimize using hyperparameter tuning in the same way as some other models like KNN. LDA mainly relies on estimates of class means and covariance matrices. However, we can experiment with different values of the shrinkage parameter in LDA to see if it improves the performance of the model. Below we will train multiple LDA models with different values of the shrinkage parameter and evaluate their performance.
+
+```{r}
+shrinkage_values <- seq(0, 1, by = 0.1)  
+```
+
+Train multiple LDA models with different shrinkage values:
+
+```{r}
+validation_errors <- numeric(length(shrinkage_values))
+accuracies <- numeric(length(shrinkage_values))
+recalls <- numeric(length(shrinkage_values))
+precisions <- numeric(length(shrinkage_values))
+F1_scores <- numeric(length(shrinkage_values))
+confusion_matrices <- list()
+```
+
+```{r}
+for (i in seq_along(shrinkage_values)) {
+  shrinkage <- shrinkage_values[i]
+  
+  lda_fit <- lda(Classification ~ ., data = training_data, shrinkage = shrinkage)
+  lda_pred <- predict(lda_fit, newdata = val.X)$class
+  
+  validation_errors[i] <- mean(lda_pred != val.y)
+  accuracies[i] <- mean(lda_pred == val.y)
+  
+  confusion_matrix <- table(lda_pred, val.y)
+    
+  precision <- confusion_matrix[2, 2] / sum(confusion_matrix[, 2])
+  precisions[i] <- precision
+  
+  recall <- confusion_matrix[2, 2] / sum(confusion_matrix[2, ])
+  recalls[i] <- recall
+
+  F1_score <- (2*precision*recall)/(precision+recall)
+  F1_scores[i] <- F1_score
+    
+  confusion_matrices[[i]] <- confusion_matrix
+  
+}
+```
+
+Evaluate model at each shrinkage value:
+
+```{r}
+for (i in seq_along(shrinkage_values)) {
+  cat("Shrinkage value:", shrinkage_values[i], "\n")
+  cat("Validation Error:", validation_errors[i], "\n")
+  cat("Accuracy:", accuracies[i], "\n")
+  cat("Recall:", recalls[i], "\n")
+  cat("Precision:", precisions[i], "\n")
+  cat("F1 Score:", F1_scores[i], "\n")
+  cat("Confusion Matrix:\n")
+  print(confusion_matrices[[i]])
+}
+```
+
+The varying shrinkage valeus did not affect the resulting validation error, accuracy, recall, or precision. Therefore, all the LDA models have a similar performance. 
+
+Train multiple LDA models with different shrinkage values:
+
+```{r}
+validation_errors_test <- numeric(length(shrinkage_values))
+accuracies_test <- numeric(length(shrinkage_values))
+recalls_test <- numeric(length(shrinkage_values))
+precisions_test <- numeric(length(shrinkage_values))
+F1_scores_test <- numeric(length(shrinkage_values))
+confusion_matrices_test <- list()
+```
+
+```{r}
+for (i in seq_along(shrinkage_values)) {
+  shrinkage <- shrinkage_values[i]
+  
+  lda_fit <- lda(Classification ~ ., data = training_data, shrinkage = shrinkage)
+  lda_pred <- predict(lda_fit, newdata = test.X)$class
+  
+  validation_errors_test[i] <- mean(lda_pred != test.y)
+  accuracies_test[i] <- mean(lda_pred == test.y)
+  
+  confusion_matrix <- table(lda_pred, test.y)
+    
+  precision <- confusion_matrix[2, 2] / sum(confusion_matrix[, 2])
+  precisions_test[i] <- precision
+  
+  recall <- confusion_matrix[2, 2] / sum(confusion_matrix[2, ])
+  recalls_test[i] <- recall
+
+  F1_score <- (2*precision*recall)/(precision+recall)
+  F1_scores_test[i] <- F1_score
+    
+  confusion_matrices_test[[i]] <- confusion_matrix
+  
+}
+```
+
+```{r}
+for (i in seq_along(shrinkage_values)) {
+  cat("Shrinkage value:", shrinkage_values[i], "\n")
+  cat("Validation Error:", validation_errors_test[i], "\n")
+  cat("Accuracy:", accuracies_test[i], "\n")
+  cat("Recall:", recalls_test[i], "\n")
+  cat("Precision:", precisions_test[i], "\n")
+  cat("F1 Score:", F1_scores_test[i], "\n")
+  cat("Confusion Matrix:\n")
+  print(confusion_matrices_test[[i]])
+}
+```
+
+**Hyperparameter Tuning for QDA Model**
+
+Similar to LDA, QDA does not have the usual hyperparameters to tune in the same way as other models such as KNN. But, we can perform CV to evaluate the model's performance. 
+
+```{r}
+ctrl_qda <- trainControl(method = "cv", number = 5)  
+```
+
+```{r}
+qda_cv <- train(
+  Classification ~ ., 
+  data = training_data, 
+  method = "qda",
+  trControl = ctrl_qda
+)
+
+print(qda_cv)
+```
+
+```{r}
+qda_pred <- predict(qda_cv, newdata = val.X)
+
+confusion_matrix_qda <- table(qda_pred, val.y)
+confusion_matrix_qda
+```
+
+```{r}
+accuracy <- mean(qda_pred == val.y)
+accuracy
+```
+
+```{r}
+validation_error <- mean(qda_pred != val.y)
+validation_error
+```
+
+```{r}
+precision <- confusion_matrix_qda[2, 2] / sum(confusion_matrix_qda[, 2])
+precision
+```
+
+```{r}
+recall <- confusion_matrix_qda[2, 2] / sum(confusion_matrix_qda[2, ])
+recall
+```
+
+```{r}
+F1_score <- (2*precision*recall)/(precision+recall)
+F1_score
+```
+
+Evaluation on test set
+
+```{r}
+qda_pred_test <- predict(qda_cv, newdata = test.X)
+
+confusion_matrix_qda_test <- table(qda_pred_test, test.y)
+confusion_matrix_qda_test
+```
+
+```{r}
+accuracy_test <- mean(qda_pred_test == test.y)
+accuracy_test
+```
+
+```{r}
+validation_error_test <- mean(qda_pred_test != test.y)
+validation_error_test
+```
+
+```{r}
+precision_test <- confusion_matrix_qda_test[2, 2] / sum(confusion_matrix_qda_test[, 2])
+precision_test
+```
+
+```{r}
+recall_test <- confusion_matrix_qda_test[2, 2] / sum(confusion_matrix_qda_test[2, ])
+recall_test
+```
+
+```{r}
+F1_score_test <- (2*precision_test*recall_test)/(precision_test+recall_test)
+F1_score_test
+```
+
+### Experimenting on Original Dataset for Both Train and Test
+
+```{r}
+set.seed(1)
+
+train_index1 <- sample(1:nrow(org_data), 0.8 * nrow(org_data))
+training_data1 <- org_data[train_index, ]
+test_data1 <- org_data[-train_index, ]
+```
+
+```{r}
+# Ensure reproducibility of results
+set.seed(1)
+
+# cbind(): column bind
+train.X1 <- training_data1[, -which(colnames(org_data) == "Classification")]
+test.X1 <- test_data1[, -which(colnames(org_data) == "Classification")]
+train.y1 <- training_data1$Classification
+test.y1 <- test_data1$Classification
+```
+
+#### Logistic Regression
+
+```{r}
+glm.model1 <- glm(Classification ~ ., data = training_data1, family = binomial)
+
+summary(glm.model1)
+```
+
+```{r}
+# Predict on validation data
+glm.probs1 <- predict(glm.model1, test.X1, type = "response") 
+
+head(glm.probs1)
+```
+
+```{r}
+# Get performance measures
+num_test1 <- length(glm.probs1) 
+glm.pred1 <- rep(1, num_test1) 
+glm.pred1[glm.probs1 > 0.5] <- 2
+
+# Confusion matrix
+conf_mat_glm_org <- table(glm.pred1, test.y1)
+
+conf_mat_glm_org
+```
+
+```{r}
+# Validation error
+mean(glm.pred1 != test.y1)
+```
+
+```{r}
+# Accuracy score
+1 - mean(glm.pred1 != test.y1)
+```
+
+```{r}
+conf_mat_glm_org[2, 2] / sum(conf_mat_glm_org[, 2])
+```
+
+```{r}
+conf_mat_glm_org[2, 2] / sum(conf_mat_glm_org[2, ])
+```
+
+```{r}
+(2*table(glm.pred1, test.y1)[2, 2] / sum(table(glm.pred1, test.y1)[, 2])*table(glm.pred1, test.y1)[2, 2] / sum(table(glm.pred1, test.y1)[2, ]))/(table(glm.pred1, test.y1)[2, 2] / sum(table(glm.pred1, test.y1)[, 2])+table(glm.pred1, test.y1)[2, 2] / sum(table(glm.pred1, test.y1)[2, ]))
+```
+
