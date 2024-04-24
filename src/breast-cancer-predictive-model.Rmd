@@ -1,5 +1,5 @@
 ---
-title: "An R Markdown document converted from \"breast-cancer-predictive-model.ipynb\""
+title: "Breast Cancer Predictive Model"
 output:
   pdf_document: default
   html_document: default
@@ -60,7 +60,7 @@ library(dplyr)
 ### Import dataset:
 
 ```{r}
-data <- read_csv("Coimbra_breast_cancer_dataset.csv")
+data <- read_csv("../data/Coimbra_breast_cancer_dataset.csv")
 
 head(data)
 ```
@@ -71,7 +71,7 @@ colnames(data)
 
 ```{r}
 # org_data <- read_csv("/kaggle/input/breastcancercoimbra-csv/BreastCancerCoimbra.csv")
-org_data <- read_csv("dataR2.csv")
+org_data <- read_csv("../data/dataR2.csv")
 
 head(org_data)
 ```
