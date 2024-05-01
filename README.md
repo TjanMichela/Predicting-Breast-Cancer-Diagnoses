@@ -4,10 +4,9 @@ Breast cancer is one of the leading causes of death among women, making it impor
 
 This repository contains:
 
-1. [The data](spec.md) for how a standard README should look.
-2. A link to [the data](https://github.com/TjanMichela/Predicting-Breast-Cancer-Diagnoses/tree/main/data) used in the project.
-3. A link to [final report](https://github.com/TjanMichela/Predicting-Breast-Cancer-Diagnoses/blob/main/docs/Final%20Report%20-%20Predicting%20Breast%20Cancer.pdf) of the project.
-4. A link to [the source code](https://github.com/TjanMichela/Predicting-Breast-Cancer-Diagnoses/blob/main/src/breast-cancer-predictive-model.Rmd).
+1. A link to [the data](https://github.com/TjanMichela/Predicting-Breast-Cancer-Diagnoses/tree/main/data) used in the project.
+2. A link to [final report](https://github.com/TjanMichela/Predicting-Breast-Cancer-Diagnoses/blob/main/docs/Final%20Report%20-%20Predicting%20Breast%20Cancer.pdf) of the project.
+3. A link to [the source code](https://github.com/TjanMichela/Predicting-Breast-Cancer-Diagnoses/blob/main/src/breast-cancer-predictive-model.Rmd).
 
 
 ## Table of Contents
