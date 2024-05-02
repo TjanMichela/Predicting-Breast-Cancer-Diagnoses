@@ -46,9 +46,7 @@ https://www.kaggle.com/datasets/atom1991/breast-cancer-coimbra
 > The model will be evaluated on various metrics: accuracy, precision, recall, f1-score, confusion matrix.
 
 ### 4. Features
-A list of important information regarding the features of the data.
-**Create data dictionary**
-Quantitative Attributes:
+A list of important information regarding the features of the data:
 1. Age (years): Represents the age of individuals in the dataset.
 2. BMI (kg/m²): Body Mass Index, a measure of body fat based on weight and height.
 3. Glucose (mg/dL): Reflects blood glucose levels, a vital metabolic indicator.
